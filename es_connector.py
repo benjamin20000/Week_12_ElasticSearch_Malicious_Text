@@ -1,8 +1,11 @@
+from operator import index
+
 from elasticsearch import Elasticsearch, helpers
 from pprint import pprint
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 import nltk
 import os
+from elasticsearch import helpers
 
 
 class EsConnect:
@@ -21,18 +24,16 @@ class EsConnect:
                 "weapon_detected":{"type":"text"}
             }
         }
-        index_name = "my_documents"
+        index_name = "tweets"
         self.es.indices.create(index=index_name, body={"mappings": mapping}, ignore=400)
 
     def delete_index(self):
         self.es.indices.delete(index="tweets", ignore_unavailable=True)
 
     def insert_df(self,df):
-        for index, row in df.iterrows():
-            try:
-                self.es.index(index='tweets', body=row.to_dict())
-            except Exception as e:
-                print(e)
+        jsonvalue = df.to_dict(orient='records')
+        helpers.bulk(self.es, jsonvalue, index="tweets", chunk_size=1000, request_timeout=200)
+
 
     def print_index(self):
         i = 0
