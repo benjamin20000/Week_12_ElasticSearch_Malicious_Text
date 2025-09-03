@@ -45,14 +45,16 @@ class EsConnect:
         print(i)
 
 
-    def get(self):
-        # for doc in helpers.scan(self.es, index="my_documents", query={"query": {"match_all": {}}}, _source=True):
-        #     # pprint(f"Document ID: {doc['_id']}")
-        #     # pprint(f"Document Source: {doc['_source']}")
-        #     # print("-" * 30)
-        #     pprint(doc['_source']['text'])
-        res = self.es.search(index="tweets", body={"query": {"match_all": {}}},size=10000)
-        pprint(len(res['hits']['hits']))
+    def get_texts(self):
+        res = self.es.search(index="tweets", body=
+        {
+            "query":
+                {
+                "match_all": {}
+                },
+            "_source": "text",
+        })
+        return res["hits"]["hits"]
 
     def _classified_emotion(self, tweet):
         score = SentimentIntensityAnalyzer().polarity_scores(tweet)
