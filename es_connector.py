@@ -1,3 +1,4 @@
+from importlib.util import source_hash
 from operator import index
 
 from elasticsearch import Elasticsearch, helpers
@@ -44,27 +45,100 @@ class EsConnect:
             i +=1
         print(i)
 
+    def get_one(self):
+        return self.es.get(index="tweets", id="28S-FJkB2QXCJWfbW9w0")
 
     def get_texts(self):
-        res = self.es.search(index="tweets", body=
+        res = self.es.search(index="tweets", size=10000 , body=
         {
             "query":
                 {
                 "match_all": {}
                 },
-            "_source": "text",
+            "_source": "text"
         })
         return res["hits"]["hits"]
 
     def _classified_emotion(self, tweet):
         score = SentimentIntensityAnalyzer().polarity_scores(tweet)
-        return score["compound"]
+        if score["compound"] < -0.5:
+            return "negative"
+        elif score["compound"] < 0.5:
+            return "neutral"
+        return "positive"
 
-    def assign_emotion(self, df):
+
+    def init_nltk(self, df):
         nltk_dir = "/tmp/nltk_data"
         os.makedirs(nltk_dir, exist_ok=True)
         nltk.data.path.append(nltk_dir)
         nltk.download('vader_lexicon', download_dir=nltk_dir, quiet=True)  # download vader_lexicon for nltk lib
+
+
+    def classified_tweets_emotions(self, data):
+        actions = []
+        for item in data:
+            id = item["_id"]
+            act = {
+                "update":{
+                    "_id": id,
+                    "_index":"tweets"
+
+                }
+            }
+            source = {
+                "doc": {
+                    "emotion": self._classified_emotion(item["_source"]["text"])
+                }
+            }
+            actions.append(act)
+            actions.append(source)
+
+        return self.es.bulk(operations=actions)
+
+    def _load_blacklist(self):
+        black_list = []
+        with open("data/weapon_list.txt", "r") as file:
+            for line in file:
+                black_list.append(line)
+        return black_list
+
+    def weapon(self, data):
+        arr = []
+        weapons = self._load_blacklist()
+        for item in data:
+            act = {
+                "update": {
+                    "_id": item["_id"],
+                    "_index": "tweets"
+
+                }
+            }
+            script = {
+                "script": {
+                    "lang": "painless",
+                    "source": """
+                                List weapons = params.weapons;
+                                String text = ctx._source.text.toLowerCase();
+                                for (w in weapons) {
+                                    if (text.contains(w.toLowerCase())) {
+                                        ctx._source.weapon_detected = w;
+                                        break
+                                    }
+                                }
+                            """,
+                    "params": {
+                        "weapons": weapons
+                    }
+                }
+            }
+            arr.append(act)
+            arr.append(script)
+        return self.es.bulk(operations=arr)
+
+
+
+
 
 
 
