@@ -120,6 +120,7 @@ class EsConnect:
                     "source": """
                                 List weapons = params.weapons;
                                 String text = ctx._source.text.toLowerCase();
+                                ctx._source.weapon_detected = "no weapon here";
                                 for (w in weapons) {
                                     if (text.contains(w.toLowerCase())) {
                                         ctx._source.weapon_detected = w;
